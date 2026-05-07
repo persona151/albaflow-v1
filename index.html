@@ -161,6 +161,7 @@
               <th>직원</th>
               <th>구분</th>
               <th>시간</th>
+              <th>근무시간</th>
             </tr>
           </thead>
           <tbody id="attendanceTable"></tbody>
@@ -175,7 +176,6 @@
       getFirestore,
       collection,
       addDoc,
-      getDocs,
       deleteDoc,
       doc,
       onSnapshot,
@@ -200,6 +200,14 @@
     let isAdmin = false;
     let employees = [];
     let workingStatus = {};
+
+    function formatWorkTime(totalMinutes) {
+      if (!totalMinutes || totalMinutes <= 0) return "";
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      return `${hours}시간 ${minutes}분`;
+    }
+
     window.loginAdmin = function () {
       const pw = document.getElementById("adminPassword").value;
       if (pw === ADMIN_PASSWORD) {
@@ -250,44 +258,53 @@
     };
 
     window.saveAttendance = async function (employeeName, type) {
+      const now = new Date();
+      const nowMs = now.getTime();
 
-      if (type === "출근" && workingStatus[employeeName]) {
-  alert("이미 출근중입니다.");
-  return;
-}
+      if (type === "출근" && workingStatus[employeeName]?.active) {
+        alert("이미 출근중입니다.");
+        return;
+      }
 
-if (type === "퇴근" && !workingStatus[employeeName]) {
-  alert("출근 상태가 아닙니다.");
-  return;
-}
-      
+      if (type === "퇴근" && !workingStatus[employeeName]?.active) {
+        alert("출근 상태가 아닙니다.");
+        return;
+      }
+
+      let workMinutes = 0;
+      let workText = "";
+
+      if (type === "퇴근") {
+        const checkInMs = workingStatus[employeeName].checkInMs;
+        workMinutes = Math.floor((nowMs - checkInMs) / 1000 / 60);
+        workText = formatWorkTime(workMinutes);
+      }
+
       await addDoc(collection(db, "attendance"), {
         employeeName,
         type,
         createdAt: serverTimestamp(),
-        timeText: new Date().toLocaleString("ko-KR")
+        localTimeMs: nowMs,
+        timeText: now.toLocaleString("ko-KR"),
+        workMinutes,
+        workText
       });
 
-      alert(employeeName + " " + type + " 기록 완료");
+      if (type === "출근") {
+        workingStatus[employeeName] = {
+          active: true,
+          checkInMs: nowMs
+        };
+      }
+
+      if (type === "퇴근") {
+        workingStatus[employeeName] = {
+          active: false
+        };
+      }
+
+      alert(employeeName + " " + type + " 기록 완료" + (workText ? `\n근무시간: ${workText}` : ""));
       renderEmployees();
-      await addDoc(collection(db, "attendance"), {
-  employeeName,
-  type,
-  createdAt: serverTimestamp(),
-  timeText: new Date().toLocaleString("ko-KR")
-});
-
-alert(employeeName + " " + type + " 기록 완료");
-
-if (type === "출근") {
-  workingStatus[employeeName] = true;
-}
-
-if (type === "퇴근") {
-  workingStatus[employeeName] = false;
-}
-
-renderEmployees();
     };
 
     function renderEmployees() {
@@ -303,10 +320,13 @@ renderEmployees();
       }
 
       employees.forEach(emp => {
+        const isWorking = workingStatus[emp.name]?.active;
+
         const div = document.createElement("div");
         div.className = "employee";
         div.innerHTML = `
           <strong>${emp.name}</strong>
+          <p class="small">${isWorking ? "현재 출근중" : "현재 퇴근상태"}</p>
           <div class="row">
             <button class="work" onclick="saveAttendance('${emp.name}', '출근')">출근</button>
             <button class="off" onclick="saveAttendance('${emp.name}', '퇴근')">퇴근</button>
@@ -347,24 +367,35 @@ renderEmployees();
       const tbody = document.getElementById("attendanceTable");
       tbody.innerHTML = "";
       workingStatus = {};
+
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
-        const tr = document.createElement("tr");
-if (data.employeeName && data.type === "출근" && !workingStatus[data.employeeName]) {
-  workingStatus[data.employeeName] = true;
-}
 
-if (data.employeeName && data.type === "퇴근") {
-  workingStatus[data.employeeName] = false;
-}
+        if (data.employeeName && data.type === "출근") {
+          workingStatus[data.employeeName] = {
+            active: true,
+            checkInMs: data.localTimeMs || 0
+          };
+        }
+
+        if (data.employeeName && data.type === "퇴근") {
+          workingStatus[data.employeeName] = {
+            active: false
+          };
+        }
+
+        const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${data.employeeName || ""}</td>
           <td>${data.type || ""}</td>
-          <td>${data.timeText || data.time || ""}</td>
+          <td>${data.timeText || ""}</td>
+          <td>${data.workText || ""}</td>
         `;
 
         tbody.appendChild(tr);
       });
+
+      renderEmployees();
     });
   </script>
 </body>
