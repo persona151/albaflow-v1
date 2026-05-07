@@ -322,17 +322,23 @@ if (type === "퇴근" && !workingStatus[employeeName]) {
 
     const attendanceQuery = query(
       collection(db, "attendance"),
-      orderBy("createdAt", "desc")
+      orderBy("createdAt", "asc")
     );
 
     onSnapshot(attendanceQuery, snapshot => {
       const tbody = document.getElementById("attendanceTable");
       tbody.innerHTML = "";
-
+      workingStatus = {};
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
         const tr = document.createElement("tr");
+if (data.employeeName && data.type === "출근" && !workingStatus[data.employeeName]) {
+  workingStatus[data.employeeName] = true;
+}
 
+if (data.employeeName && data.type === "퇴근" && !workingStatus[data.employeeName]) {
+  workingStatus[data.employeeName] = false;
+}
         tr.innerHTML = `
           <td>${data.employeeName || ""}</td>
           <td>${data.type || ""}</td>
