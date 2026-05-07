@@ -1,45 +1,184 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AlbaFlow</title>
-
   <style>
-    body{font-family:sans-serif;background:#f5f5f5;padding:40px;}
-    .box{max-width:450px;margin:auto;background:white;padding:30px;border-radius:20px;box-shadow:0 4px 20px rgba(0,0,0,0.1);}
-    h1{text-align:center;margin-bottom:25px;}
-    input{width:100%;padding:15px;font-size:18px;margin-bottom:20px;box-sizing:border-box;border-radius:10px;border:1px solid #ddd;}
-    button{width:100%;padding:15px;font-size:18px;border:none;border-radius:12px;margin-bottom:10px;cursor:pointer;}
-    .start{background:#4CAF50;color:white;}
-    .end{background:#f44336;color:white;}
-    h2{margin-top:30px;}
-    .record{background:#eee;padding:15px;border-radius:12px;margin-bottom:10px;}
-    .working{background:#e8f5e9;}
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f4f6f8;
+      margin: 0;
+      padding: 20px;
+      color: #222;
+    }
+
+    .app {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 18px;
+      padding: 20px;
+      margin-bottom: 18px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    }
+
+    input, button {
+      font-size: 16px;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid #ddd;
+      box-sizing: border-box;
+    }
+
+    input {
+      width: 100%;
+      margin-bottom: 10px;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      background: #222;
+      color: white;
+      margin: 4px;
+    }
+
+    button.secondary {
+      background: #666;
+    }
+
+    button.danger {
+      background: #c0392b;
+    }
+
+    button.work {
+      background: #1f7a4d;
+    }
+
+    button.off {
+      background: #b26b00;
+    }
+
+    .employee {
+      border-top: 1px solid #eee;
+      padding-top: 14px;
+      margin-top: 14px;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .small {
+      color: #777;
+      font-size: 14px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th, td {
+      border-bottom: 1px solid #eee;
+      padding: 10px;
+      text-align: left;
+    }
+
+    th {
+      background: #fafafa;
+    }
+
+    .admin-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      background: #222;
+      color: white;
+      border-radius: 999px;
+      font-size: 12px;
+    }
   </style>
 </head>
 
 <body>
-  <div class="box">
+  <div class="app">
     <h1>AlbaFlow</h1>
+    <div class="subtitle">알바 출퇴근 · 직원 관리 · 급여 계산</div>
 
-    <input type="text" id="name" placeholder="직원 이름 입력">
-    <input type="number" id="pay" placeholder="시급 입력">
-    <button class="start" onclick="checkIn()">출근하기</button>
-    <button class="end" onclick="checkOut()">퇴근하기</button>
+    <div class="card">
+      <h2>직원 출퇴근</h2>
+      <div id="employeeList"></div>
+    </div>
 
-    <h2>오늘 기록</h2>
-    <div id="list"></div>
+    <div class="card">
+      <h2>관리자 모드</h2>
+      <p class="small">관리자 비밀번호를 입력하면 직원 추가, 시급 설정, 기록 확인이 가능합니다.</p>
+
+      <div id="loginBox">
+        <input id="adminPassword" type="password" placeholder="관리자 비밀번호 입력" />
+        <button onclick="loginAdmin()">관리자 로그인</button>
+      </div>
+
+      <div id="adminPanel" class="hidden">
+        <span class="admin-badge">관리자 모드</span>
+        <button class="secondary" onclick="logoutAdmin()">로그아웃</button>
+
+        <h3>직원 추가</h3>
+        <input id="newEmployeeName" placeholder="직원 이름" />
+        <input id="newEmployeeWage" type="number" placeholder="시급 예: 10030" />
+        <button onclick="addEmployee()">직원 추가</button>
+
+        <h3>직원 목록</h3>
+        <div id="adminEmployeeList"></div>
+
+        <h3>출퇴근 기록</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>직원</th>
+              <th>구분</th>
+              <th>시간</th>
+            </tr>
+          </thead>
+          <tbody id="attendanceTable"></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
-
     import {
       getFirestore,
       collection,
       addDoc,
       getDocs,
+      deleteDoc,
+      doc,
+      onSnapshot,
       serverTimestamp,
       query,
       orderBy
@@ -57,136 +196,140 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    let workingPeople = {};
+    const ADMIN_PASSWORD = "1234";
+    let isAdmin = false;
+    let employees = [];
 
-    function getTodayKey(){
-      const d = new Date();
-      return d.getFullYear() + "-" +
-        String(d.getMonth() + 1).padStart(2, "0") + "-" +
-        String(d.getDate()).padStart(2, "0");
-    }
+    window.loginAdmin = function () {
+      const pw = document.getElementById("adminPassword").value;
+      if (pw === ADMIN_PASSWORD) {
+        isAdmin = true;
+        document.getElementById("loginBox").classList.add("hidden");
+        document.getElementById("adminPanel").classList.remove("hidden");
+        renderEmployees();
+      } else {
+        alert("비밀번호가 맞지 않습니다.");
+      }
+    };
 
-    async function loadAttendance(){
-      const q = query(
-        collection(db, "attendance"),
-        orderBy("createdAt", "asc")
-      );
+    window.logoutAdmin = function () {
+      isAdmin = false;
+      document.getElementById("loginBox").classList.remove("hidden");
+      document.getElementById("adminPanel").classList.add("hidden");
+      document.getElementById("adminPassword").value = "";
+    };
 
-      const querySnapshot = await getDocs(q);
+    window.addEmployee = async function () {
+      const name = document.getElementById("newEmployeeName").value.trim();
+      const wage = Number(document.getElementById("newEmployeeWage").value);
 
-      workingPeople = {};
-      let html = "";
-      const today = getTodayKey();
+      if (!name) {
+        alert("직원 이름을 입력하세요.");
+        return;
+      }
 
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
+      if (!wage || wage <= 0) {
+        alert("시급을 입력하세요.");
+        return;
+      }
 
-        if(data.date !== today) return;
+      await addDoc(collection(db, "employees"), {
+        name,
+        wage,
+        createdAt: serverTimestamp()
+      });
 
-        if(data.type === "출근"){
-          workingPeople[data.employeeName] = data;
-        }
+      document.getElementById("newEmployeeName").value = "";
+      document.getElementById("newEmployeeWage").value = "";
+      alert("직원이 추가되었습니다.");
+    };
 
-        if(data.type === "퇴근"){
-          delete workingPeople[data.employeeName];
-        }
+    window.deleteEmployee = async function (id) {
+      if (!confirm("이 직원을 삭제할까요?")) return;
+      await deleteDoc(doc(db, "employees", id));
+    };
 
-        html += `
-          <div class="record">
-            <strong>${data.employeeName}</strong><br>
-            ${data.type}<br>
-            시간 : ${data.time || "-"}<br>
-            근무시간 : ${data.workedHours || "-"}
+    window.saveAttendance = async function (employeeName, type) {
+      await addDoc(collection(db, "attendance"), {
+        employeeName,
+        type,
+        createdAt: serverTimestamp(),
+        timeText: new Date().toLocaleString("ko-KR")
+      });
+
+      alert(employeeName + " " + type + " 기록 완료");
+    };
+
+    function renderEmployees() {
+      const employeeList = document.getElementById("employeeList");
+      const adminEmployeeList = document.getElementById("adminEmployeeList");
+
+      employeeList.innerHTML = "";
+      adminEmployeeList.innerHTML = "";
+
+      if (employees.length === 0) {
+        employeeList.innerHTML = "<p class='small'>아직 등록된 직원이 없습니다. 관리자 모드에서 직원을 추가하세요.</p>";
+        return;
+      }
+
+      employees.forEach(emp => {
+        const div = document.createElement("div");
+        div.className = "employee";
+        div.innerHTML = `
+          <strong>${emp.name}</strong>
+          <div class="row">
+            <button class="work" onclick="saveAttendance('${emp.name}', '출근')">출근</button>
+            <button class="off" onclick="saveAttendance('${emp.name}', '퇴근')">퇴근</button>
           </div>
         `;
-      });
+        employeeList.appendChild(div);
 
-      const workingNames = Object.keys(workingPeople);
-
-      if(workingNames.length > 0){
-        html += `<h2>현재 출근중</h2>`;
-
-        workingNames.forEach((name) => {
-          html += `
-            <div class="record working">
-              ${name} 출근중
-            </div>
+        if (isAdmin) {
+          const adminDiv = document.createElement("div");
+          adminDiv.className = "employee";
+          adminDiv.innerHTML = `
+            <strong>${emp.name}</strong>
+            <p class="small">시급: ${emp.wage.toLocaleString()}원</p>
+            <button class="danger" onclick="deleteEmployee('${emp.id}')">삭제</button>
           `;
+          adminEmployeeList.appendChild(adminDiv);
+        }
+      });
+    }
+
+    onSnapshot(collection(db, "employees"), snapshot => {
+      employees = [];
+      snapshot.forEach(docSnap => {
+        employees.push({
+          id: docSnap.id,
+          ...docSnap.data()
         });
-      }
-
-      document.getElementById("list").innerHTML = html;
-    }
-
-    async function checkIn(){
-      await loadAttendance();
-
-      const name = document.getElementById("name").value.trim();
-      const pay = Number(document.getElementById("pay").value);
-      if(!name){
-        alert("이름 입력");
-        return;
-      }
-
-      if(workingPeople[name]){
-        alert("이미 출근중입니다");
-        return;
-      }
-
-      const now = new Date();
-
-      await addDoc(collection(db, "attendance"), {
-        employeeName: name,
-        hourlyPay: pay,
-        type: "출근",
-        date: getTodayKey(),
-        time: now.toLocaleTimeString(),
-        checkInMillis: now.getTime(),
-        createdAt: serverTimestamp()
       });
+      renderEmployees();
+    });
 
-      alert(name + " 출근 완료");
-      loadAttendance();
-    }
+    const attendanceQuery = query(
+      collection(db, "attendance"),
+      orderBy("createdAt", "desc")
+    );
 
-    async function checkOut(){
-      await loadAttendance();
+    onSnapshot(attendanceQuery, snapshot => {
+      const tbody = document.getElementById("attendanceTable");
+      tbody.innerHTML = "";
 
-      const name = document.getElementById("name").value.trim();
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        const tr = document.createElement("tr");
 
-      if(!name){
-        alert("이름 입력");
-        return;
-      }
+        tr.innerHTML = `
+          <td>${data.employeeName || ""}</td>
+          <td>${data.type || ""}</td>
+          <td>${data.timeText || data.time || ""}</td>
+        `;
 
-      if(!workingPeople[name]){
-        alert("출근 기록 없음");
-        return;
-      }
-
-      const now = new Date();
-      const checkInMillis = workingPeople[name].checkInMillis;
-
-      const diff = (now.getTime() - checkInMillis) / 1000 / 60 / 60;
-      const workHours = diff.toFixed(2);
-
-      await addDoc(collection(db, "attendance"), {
-        employeeName: name,
-        type: "퇴근",
-        date: getTodayKey(),
-        time: now.toLocaleTimeString(),
-        workedHours: workHours,
-        createdAt: serverTimestamp()
+        tbody.appendChild(tr);
       });
-
-      alert(name + " 퇴근 완료");
-      loadAttendance();
-    }
-
-    loadAttendance();
-
-    window.checkIn = checkIn;
-    window.checkOut = checkOut;
+    });
   </script>
 </body>
 </html>
