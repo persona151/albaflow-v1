@@ -336,7 +336,7 @@ if (data.employeeName && data.type === "출근" && !workingStatus[data.employeeN
   workingStatus[data.employeeName] = true;
 }
 
-if (data.employeeName && data.type === "퇴근" && !workingStatus[data.employeeName]) {
+if (data.employeeName && data.type === "퇴근") {
   workingStatus[data.employeeName] = false;
 }
         tr.innerHTML = `
