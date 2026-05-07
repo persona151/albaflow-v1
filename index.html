@@ -250,6 +250,17 @@
     };
 
     window.saveAttendance = async function (employeeName, type) {
+
+      if (type === "출근" && workingStatus[employeeName]) {
+  alert("이미 출근중입니다.");
+  return;
+}
+
+if (type === "퇴근" && !workingStatus[employeeName]) {
+  alert("출근 상태가 아닙니다.");
+  return;
+}
+      
       await addDoc(collection(db, "attendance"), {
         employeeName,
         type,
