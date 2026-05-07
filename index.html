@@ -270,6 +270,24 @@ if (type === "퇴근" && !workingStatus[employeeName]) {
 
       alert(employeeName + " " + type + " 기록 완료");
       renderEmployees();
+      await addDoc(collection(db, "attendance"), {
+  employeeName,
+  type,
+  createdAt: serverTimestamp(),
+  timeText: new Date().toLocaleString("ko-KR")
+});
+
+alert(employeeName + " " + type + " 기록 완료");
+
+if (type === "출근") {
+  workingStatus[employeeName] = true;
+}
+
+if (type === "퇴근") {
+  workingStatus[employeeName] = false;
+}
+
+renderEmployees();
     };
 
     function renderEmployees() {
